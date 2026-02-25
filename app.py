@@ -23,14 +23,14 @@ def run_boardroom(ticker):
     # Agent 2: The Bear (Pessimist)
     bear_opinion = price_change - 0.05
     # Agent 3: The Math (Neutral)
-    math_opinion = price_change
+    math_opinion = price_change # Display Opinions in Columns col1, col2, col3 = st.columns(3)col1.metric("Agent Alpha (Bull)", f"{bull_opinion:+.2%}", "Optimistic") col2.metric("Agent Beta (Bear)", f"{bear_opinion:+.2%}", "Cynical")   col3.metric("Agent Gamma (Math)", f"{math_opinion:+.2%}", "Neutral")
 
-    # Display Opinions in Columns
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Agent Alpha (Bull)", f"{bull_opinion:+.2%}", "Optimistic")
-    col2.metric("Agent Beta (Bear)", f"{bear_opinion:+.2%}", "Cynical")
-    col3.metric("Agent Gamma (Math)", f"{math_opinion:+.2%}", "Neutral")
-
+    # 1. Ensure the math uses float numbers to avoid TypeErrors
+    # 2. Add a fallback to 0.0 if data is missing
+    bull_opinion = float(price_change + 0.05) if not np.isnan(price_change) else 0.0
+    bear_opinion = float(price_change - 0.05) if not np.isnan(price_change) else 0.0
+    math_opinion = float(price_change) if not np.isnan(price_change) else 0.0
+    
     # The Chairperson's Final Verdict
     consensus = (bull_opinion + bear_opinion + math_opinion) / 3
     st.divider()
