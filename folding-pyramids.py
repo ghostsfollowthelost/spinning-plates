@@ -1,10 +1,10 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 import feedparser
 
-# ── Grok-style dark UI + smooth animations ──
+# Grok-style dark UI + smooth animations (no Plotly)
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;700&display=swap');
@@ -28,13 +28,13 @@ st.markdown("""
         .stTabs [data-baseweb="tab"] { transition: all 0.2s; }
         .stTabs [data-baseweb="tab"]:hover { transform: translateY(-2px); }
         
-        .plotly-chart-container { background: #1a1a1a; border-radius: 12px; padding: 8px; }
+        figure { background: #1a1a1a !important; border-radius: 12px; padding: 12px; }
     </style>
 """, unsafe_allow_html=True)
 
 st.set_page_config(page_title="Mini Aladdin", layout="wide", page_icon="🧿")
 st.title("🧿 Stock Analyzer — Mini BlackRock Aladdin")
-st.markdown("**Real-time • Interactive • Professional** | Yahoo Finance + Google News")
+st.markdown("**Real-time • Beautiful • Lightweight** | Yahoo Finance + Google News")
 
 ticker_input = st.text_input("Enter stock ticker", placeholder="AAPL, TSLA, NVDA", value="AAPL").upper().strip()
 
@@ -44,21 +44,18 @@ if ticker_input:
             ticker = yf.Ticker(ticker_input)
             info = ticker.info
 
-            # Header
             col1, col2, col3 = st.columns([3, 2, 2])
-            with col1:
-                st.subheader(f"{info.get('longName', ticker_input)} ({ticker_input})")
+            with col1: st.subheader(f"{info.get('longName', ticker_input)} ({ticker_input})")
             with col2:
                 price = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose')
                 st.metric("Current Price", f"${price:,.2f}" if price else "N/A")
-            with col3:
-                st.metric("Market Cap", f"${info.get('marketCap', 0)/1e9:,.1f}B")
+            with col3: st.metric("Market Cap", f"${info.get('marketCap', 0)/1e9:,.1f}B")
 
             st.markdown(f"**Industry:** {info.get('industry', 'N/A')} | **Website:** [{info.get('website','N/A')}]({info.get('website','N/A')})")
 
-            tab1, tab2, tab3, tab4 = st.tabs(["📊 Interactive Chart", "📈 Key Metrics", "💰 Financials", "📰 Latest News"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 Pro Chart", "📈 Key Metrics", "💰 Financials", "📰 Latest News"])
 
-            # ── TAB 1: PRO INTERACTIVE CHART (Candlestick + Volume + MA toggles) ──
+            # ── BEAUTIFUL MATPLOTLIB CHART (no Plotly, no extra packages) ──
             with tab1:
                 period = st.selectbox("Time period", ["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"], index=3)
                 hist = ticker.history(period=period)
@@ -69,63 +66,52 @@ if ticker_input:
 
                 # Controls
                 col_a, col_b, col_c = st.columns([1,1,1])
-                with col_a:
-                    show_ma50 = st.checkbox("50-day MA", value=True)
-                with col_b:
-                    show_ma200 = st.checkbox("200-day MA", value=True)
-                with col_c:
-                    show_volume = st.checkbox("Volume bars", value=True)
+                with col_a: show_ma50 = st.checkbox("50-day MA", value=True)
+                with col_b: show_ma200 = st.checkbox("200-day MA", value=True)
+                with col_c: show_volume = st.checkbox("Volume subplot", value=True)
 
-                fig = go.Figure()
-
-                # Candlestick
-                fig.add_trace(go.Candlestick(
-                    x=hist.index,
-                    open=hist['Open'],
-                    high=hist['High'],
-                    low=hist['Low'],
-                    close=hist['Close'],
-                    name="Price",
-                    increasing_line_color='#00ff9d',
-                    decreasing_line_color='#ff2d55'
-                ))
-
-                # Moving Averages
-                if show_ma50:
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['MA50'], name="50-day MA", line=dict(color='#ffd700', width=2)))
-                if show_ma200:
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['MA200'], name="200-day MA", line=dict(color='#00b4ff', width=2)))
-
-                # Volume
+                # Create dark-themed matplotlib figure
                 if show_volume:
+                    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), gridspec_kw={'height_ratios': [3, 1]}, facecolor='#1a1a1a')
+                else:
+                    fig, ax1 = plt.subplots(figsize=(12, 6), facecolor='#1a1a1a')
+                    ax2 = None
+
+                # Price plot
+                ax1.plot(hist.index, hist['Close'], label='Close Price', color='#1E88E5', linewidth=2.5)
+                if show_ma50 and not hist['MA50'].isna().all():
+                    ax1.plot(hist.index, hist['MA50'], label='50-day MA', color='#ffd700', linewidth=2)
+                if show_ma200 and not hist['MA200'].isna().all():
+                    ax1.plot(hist.index, hist['MA200'], label='200-day MA', color='#00b4ff', linewidth=2)
+                
+                ax1.set_title(f"{ticker_input} — {period.upper()} Price History", color='white', fontsize=16, pad=20)
+                ax1.set_ylabel("Price (USD)", color='#e0e0e0')
+                ax1.legend(facecolor='#1a1a1a', edgecolor='#4a4a4a', labelcolor='white')
+                ax1.grid(True, alpha=0.3, color='#4a4a4a')
+                ax1.tick_params(colors='#e0e0e0')
+                ax1.spines['bottom'].set_color('#4a4a4a')
+                ax1.spines['top'].set_color('#4a4a4a')
+                ax1.spines['left'].set_color('#4a4a4a')
+                ax1.spines['right'].set_color('#4a4a4a')
+                ax1.set_facecolor('#1a1a1a')
+
+                # Volume subplot
+                if show_volume and ax2 is not None:
                     colors = ['#00ff9d' if o >= c else '#ff2d55' for o, c in zip(hist['Open'], hist['Close'])]
-                    fig.add_trace(go.Bar(
-                        x=hist.index,
-                        y=hist['Volume'],
-                        name="Volume",
-                        marker_color=colors,
-                        opacity=0.6,
-                        yaxis="y2"
-                    ))
+                    ax2.bar(hist.index, hist['Volume'], color=colors, alpha=0.7, width=0.8)
+                    ax2.set_ylabel("Volume", color='#e0e0e0')
+                    ax2.tick_params(colors='#e0e0e0')
+                    ax2.spines['bottom'].set_color('#4a4a4a')
+                    ax2.spines['top'].set_color('#4a4a4a')
+                    ax2.spines['left'].set_color('#4a4a4a')
+                    ax2.spines['right'].set_color('#4a4a4a')
+                    ax2.set_facecolor('#1a1a1a')
+                    ax2.grid(True, alpha=0.3, color='#4a4a4a')
 
-                # Layout
-                fig.update_layout(
-                    template="plotly_dark",
-                    plot_bgcolor="#1a1a1a",
-                    paper_bgcolor="#1a1a1a",
-                    font=dict(color="#e0e0e0"),
-                    title=f"{ticker_input} — Interactive {period.upper()} Chart",
-                    xaxis=dict(rangeslider=dict(visible=True), type="date"),
-                    yaxis=dict(title="Price (USD)"),
-                    yaxis2=dict(title="Volume", overlaying="y", side="right", showgrid=False),
-                    height=650,
-                    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
-                    margin=dict(l=40, r=40, t=60, b=40)
-                )
+                plt.tight_layout()
+                st.pyplot(fig, use_container_width=True)
 
-                st.plotly_chart(fig, use_container_width=True)
-
-            # Rest of tabs (same as before)
+            # Rest of the tabs (unchanged)
             with tab2:
                 c1, c2 = st.columns(2)
                 with c1:
@@ -141,13 +127,13 @@ if ticker_input:
 
             with tab3:
                 st.markdown("**Key Financial Statistics**")
-                stats = {k: v for k, v in {
+                stats = {
                     "Enterprise Value": f"${info.get('enterpriseValue', 0)/1e9:,.1f}B",
                     "Trailing EPS": info.get('trailingEps', 'N/A'),
                     "Forward EPS": info.get('forwardEps', 'N/A'),
                     "Profit Margin": f"{info.get('profitMargins', 0)*100:,.1f}%",
                     "Return on Equity": f"{info.get('returnOnEquity', 0)*100:,.1f}%",
-                }.items()}
+                }
                 for k, v in stats.items():
                     st.write(f"**{k}**: {v}")
 
